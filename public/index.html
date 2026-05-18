@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GasFree 全自动支付</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 { text-align: center; margin-bottom: 8px; font-size: 32px; background: linear-gradient(90deg, #64ffda, #00d4ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .subtitle { text-align: center; color: #8892b0; margin-bottom: 30px; font-size: 14px; }
+        .card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            padding: 28px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+        }
+        .card h2 { font-size: 18px; margin-bottom: 16px; color: #64ffda; display: flex; align-items: center; gap: 8px; }
+        .form-group { margin-bottom: 16px; }
+        label { display: block; margin-bottom: 6px; font-size: 14px; color: #ccd6f6; }
+        input, select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 10px;
+            background: rgba(0,0,0,0.2);
+            color: #fff;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        input:focus, select:focus { outline: none; border-color: #64ffda; box-shadow: 0 0 0 3px rgba(100,255,218,0.1); }
+        button {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #64ffda, #00d4ff);
+            color: #0a192f;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        button:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(100,255,218,0.3); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid #64ffda;
+            color: #64ffda;
+            margin-top: 10px;
+        }
+        .btn-secondary:hover { background: rgba(100,255,218,0.1); }
+        .btn-danger {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
+            color: #fff;
+        }
+        .status {
+            padding: 12px 16px;
+            border-radius: 10px;
+            margin-top: 16px;
+            font-size: 14px;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        .status.success { background: rgba(100,255,218,0.1); border: 1px solid rgba(100,255,218,0.3); color: #64ffda; display: block; }
+        .status.error { background: rgba(255,100,100,0.1); border: 1px solid rgba(255,100,100,0.3); color: #ff6464; display: block; }
+        .status.info { background: rgba(100,150,255,0.1); border: 1px solid rgba(100,150,255,0.3); color: #6496ff; display: block; }
+        .status.warning { background: rgba(255,200,100,0.1); border: 1px solid rgba(255,200,100,0.3); color: #ffc864; display: block; }
+        .qr-container { text-align: center; margin-top: 20px; padding: 20px; background: rgba(255,255,255,0.03); border-radius: 12px; }
+        .qr-container img { max-width: 280px; border-radius: 8px; }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 16px;
+        }
+        .info-item {
+            background: rgba(0,0,0,0.2);
+            padding: 14px;
+            border-radius: 10px;
+            font-size: 13px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .info-item .label { color: #8892b0; margin-bottom: 6px; font-size: 12px; }
+        .info-item .value { color: #fff; font-weight: 600; word-break: break-all; font-size: 14px; }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+        .tab {
+            flex: 1;
+            padding: 14px;
+            text-align: center;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        .tab:hover { background: rgba(255,255,255,0.06); }
+        .tab.active {
+            background: rgba(100,255,218,0.1);
+            border-color: #64ffda;
+            color: #64ffda;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #64ffda;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .order-list { max-height: 400px; overflow-y: auto; }
+        .order-item {
+            padding: 14px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+            margin-bottom: 10px;
+            font-size: 13px;
+            border: 1px solid rgba(255,255,255,0.05);
+            transition: all 0.3s;
+        }
+        .order-item:hover { border-color: rgba(100,255,218,0.2); }
+        .order-item .id { color: #64ffda; font-weight: 600; }
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        .badge-pending { background: rgba(255,200,100,0.15); color: #ffc864; }
+        .badge-submitted { background: rgba(100,150,255,0.15); color: #6496ff; }
+        .badge-success { background: rgba(100,255,218,0.15); color: #64ffda; }
+        .badge-failed { background: rgba(255,100,100,0.15); color: #ff6464; }
+        .badge-timeout { background: rgba(150,150,150,0.15); color: #aaa; }
+        .tx-hash { font-family: monospace; font-size: 12px; color: #8892b0; }
+        .section-title { font-size: 13px; color: #8892b0; margin: 20px 0 10px; }
+        .highlight { color: #64ffda; font-weight: 600; }
+        .network-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            background: rgba(100,255,218,0.1);
+            color: #64ffda;
+            border: 1px solid rgba(100,255,218,0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚡ GasFree 全自动支付</h1>
+        <p class="subtitle">无需 TRX，USDT 直付 Gas 费 | 余额自动归集 | <span class="network-badge" id="networkBadge">检测中...</span></p>
+
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('payment')">💳 发起支付</div>
+            <div class="tab" onclick="switchTab('collect')">🔄 余额归集</div>
+            <div class="tab" onclick="switchTab('orders')">📋 订单记录</div>
+        </div>
+
+        <div id="payment" class="tab-content active">
+            <div class="card">
+                <h2>📱 创建支付订单</h2>
+                <div class="form-group">
+                    <label>你的 TRON 地址（GasFree 钱包地址）</label>
+                    <input type="text" id="userAddress" placeholder="T..." value="">
+                </div>
+                <div class="form-group">
+                    <label>支付金额（USDT）</label>
+                    <input type="number" id="amount" placeholder="10" value="10" step="0.01" min="0.01">
+                </div>
+                <div class="form-group">
+                    <label>备注（可选）</label>
+                    <input type="text" id="description" placeholder="视频会员1个月">
+                </div>
+                <button id="btnCreate" onclick="createOrder()">🚀 创建订单并生成二维码</button>
+                <div id="statusCreate" class="status"></div>
+
+                <div id="qrArea" style="display:none;">
+                    <div class="section-title">📲 扫码支付 或 复制参数到 TronLink 签名</div>
+                    <div class="qr-container">
+                        <img id="qrImage" src="" alt="支付二维码">
+                    </div>
+                    <div class="info-grid" id="orderInfo"></div>
+                    <button class="btn-secondary" id="btnSign" onclick="signAndSubmit()">✍️ 使用 TronLink 签名并自动提交</button>
+                    <div id="statusSubmit" class="status"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="collect" class="tab-content">
+            <div class="card">
+                <h2>🔄 全自动余额归集</h2>
+                <p style="color:#8892b0; font-size:13px; margin-bottom:16px;">
+                    将 GasFree 地址中的 <span class="highlight">全部 USDT 余额</span>（扣除手续费后）自动转入商户地址。
+                    <br>无需手动计算，一键完成全额划转。
+                </p>
+                <div class="form-group">
+                    <label>你的 TRON 地址</label>
+                    <input type="text" id="collectAddress" placeholder="T...">
+                </div>
+                <button id="btnQuery" onclick="queryBalance()">🔍 查询余额</button>
+                <div id="statusQuery" class="status"></div>
+
+                <div id="collectArea" style="display:none; margin-top:20px;">
+                    <div class="section-title">💰 余额详情</div>
+                    <div class="info-grid" id="balanceInfo"></div>
+                    <button id="btnCollect" onclick="autoCollect()">🚀 一键全额归集</button>
+                    <div id="statusCollect" class="status"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="orders" class="tab-content">
+            <div class="card">
+                <h2>📋 订单记录</h2>
+                <div style="display:flex; gap:10px; margin-bottom:16px;">
+                    <button class="btn-secondary" style="flex:1; margin:0;" onclick="loadOrders()">🔄 刷新列表</button>
+                    <button class="btn-secondary" style="flex:1; margin:0;" onclick="clearOrders()">🗑️ 清空显示</button>
+                </div>
+                <div id="ordersList" class="order-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentOrder = null;
+        let currentTxParams = null;
+        let merchantInfo = null;
+
+        window.addEventListener('load', async () => {
+            try {
+                const res = await fetch('/api/gasfree/merchant-info');
+                const data = await res.json();
+                if (data.success) {
+                    merchantInfo = data.data;
+                    document.getElementById('networkBadge').textContent = 
+                        data.data.network === 'mainnet' ? '🔴 TRON 主网' : '🟡 测试网';
+                }
+            } catch (e) {}
+
+            if (window.tronWeb && window.tronWeb.defaultAddress.base58) {
+                document.getElementById('userAddress').value = window.tronWeb.defaultAddress.base58;
+                document.getElementById('collectAddress').value = window.tronWeb.defaultAddress.base58;
+            }
+
+            loadOrders();
+        });
+
+        function switchTab(name) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById(name).classList.add('active');
+            if (name === 'orders') loadOrders();
+        }
+
+        function showStatus(id, msg, type) {
+            const el = document.getElementById(id);
+            el.innerHTML = msg;
+            el.className = 'status ' + type;
+        }
+
+        function setLoading(id, loading) {
+            const btn = document.getElementById(id);
+            if (loading) {
+                btn.disabled = true;
+                if (!btn.innerHTML.includes('loading')) {
+                    btn.innerHTML += '<span class="loading"></span>';
+                }
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = btn.innerHTML.replace('<span class="loading"></span>', '');
+            }
+        }
+
+        async function createOrder() {
+            const userAddress = document.getElementById('userAddress').value.trim();
+            const amount = document.getElementById('amount').value;
+            const description = document.getElementById('description').value;
+
+            if (!userAddress || !amount) {
+                showStatus('statusCreate', '❌ 请填写地址和金额', 'error');
+                return;
+            }
+
+            setLoading('btnCreate', true);
+            showStatus('statusCreate', '⏳ 创建订单中...', 'info');
+
+            try {
+                const res = await fetch('/api/gasfree/create-order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userAddress, amount: parseFloat(amount), description })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    currentOrder = data.data;
+                    currentTxParams = data.data.txParams;
+
+                    document.getElementById('qrImage').src = data.data.qrCode;
+                    document.getElementById('qrArea').style.display = 'block';
+
+                    document.getElementById('orderInfo').innerHTML = `
+                        <div class="info-item"><div class="label">订单号</div><div class="value">${data.data.orderId}</div></div>
+                        <div class="info-item"><div class="label">支付金额</div><div class="value" style="color:#64ffda;">${data.data.amount} USDT</div></div>
+                        <div class="info-item"><div class="label">GasFree 手续费</div><div class="value">${data.data.maxFee} USDT</div></div>
+                        <div class="info-item"><div class="label">合计扣除</div><div class="value" style="color:#ffc864;">${data.data.totalDeduction} USDT</div></div>
+                        <div class="info-item"><div class="label">GasFree 地址</div><div class="value" style="font-size:12px;">${data.data.gasFreeAddress}</div></div>
+                        <div class="info-item"><div class="label">当前余额</div><div class="value">${data.data.gasFreeBalance} USDT</div></div>
+                        <div class="info-item"><div class="label">Nonce</div><div class="value">${data.data.nonce}</div></div>
+                        <div class="info-item"><div class="label">截止时间</div><div class="value">${new Date(data.data.deadline * 1000).toLocaleString()}</div></div>
+                    `;
+
+                    showStatus('statusCreate', '✅ 订单创建成功！请使用 TronLink 签名后提交', 'success');
+                } else {
+                    showStatus('statusCreate', '❌ ' + (data.error || '创建失败'), 'error');
+                }
+            } catch (err) {
+                showStatus('statusCreate', '❌ 网络错误: ' + err.message, 'error');
+            } finally {
+                setLoading('btnCreate', false);
+            }
+        }
+
+        async function signAndSubmit() {
+            if (!currentOrder || !currentTxParams) {
+                showStatus('statusSubmit', '❌ 请先创建订单', 'error');
+                return;
+            }
+
+            if (!window.tronWeb || !window.tronWeb.defaultAddress.base58) {
+                showStatus('statusSubmit', '❌ 请先安装 TronLink 钱包并登录', 'error');
+                return;
+            }
+
+            setLoading('btnSign', true);
+            showStatus('statusSubmit', '⏳ 等待 TronLink 签名...', 'info');
+
+            try {
+                const { domain, types, message } = currentTxParams;
+                const signature = await window.tronWeb.trx._signTypedData(domain, types, message);
+
+                showStatus('statusSubmit', '⏳ 签名成功，正在自动提交上链...', 'info');
+
+                const res = await fetch('/api/gasfree/submit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        orderId: currentOrder.orderId,
+                        signature,
+                        mode: 'auto'
+                    })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    showStatus('statusSubmit', 
+                        `✅ 提交成功！<br>交易哈希: <span class="tx-hash">${data.data.txHash}</span><br>提交模式: ${data.data.submitMode}<br>预计确认时间: ${data.data.estimatedConfirmTime}`,
+                        'success'
+                    );
+                    startPolling(currentOrder.orderId, 'statusSubmit');
+                } else {
+                    showStatus('statusSubmit', '❌ ' + (data.error || '提交失败'), 'error');
+                }
+            } catch (err) {
+                showStatus('statusSubmit', '❌ 签名或提交失败: ' + err.message, 'error');
+            } finally {
+                setLoading('btnSign', false);
+            }
+        }
+
+        async function queryBalance() {
+            const address = document.getElementById('collectAddress').value.trim();
+            if (!address) {
+                showStatus('statusQuery', '❌ 请输入地址', 'error');
+                return;
+            }
+
+            setLoading('btnQuery', true);
+            showStatus('statusQuery', '⏳ 查询中...', 'info');
+
+            try {
+                const res = await fetch('/api/gasfree/balance/' + address);
+                const data = await res.json();
+
+                if (data.success) {
+                    document.getElementById('collectArea').style.display = 'block';
+                    document.getElementById('balanceInfo').innerHTML = `
+                        <div class="info-item"><div class="label">用户地址</div><div class="value">${data.data.userAddress}</div></div>
+                        <div class="info-item"><div class="label">GasFree 地址</div><div class="value" style="font-size:12px;">${data.data.gasFreeAddress}</div></div>
+                        <div class="info-item"><div class="label">USDT 余额</div><div class="value" style="color:#64ffda;">${data.data.usdtBalance}</div></div>
+                        <div class="info-item"><div class="label">可全额转出</div><div class="value">${data.data.sufficientForTransfer ? '✅ 是' : '❌ 否（余额不足手续费）'}</div></div>
+                        <div class="info-item"><div class="label">预计到账</div><div class="value" style="color:#ffc864;">${data.data.estimatedMaxTransfer} USDT</div></div>
+                    `;
+                    showStatus('statusQuery', '✅ 查询成功', 'success');
+                } else {
+                    showStatus('statusQuery', '❌ ' + (data.error || '查询失败'), 'error');
+                }
+            } catch (err) {
+                showStatus('statusQuery', '❌ 网络错误: ' + err.message, 'error');
+            } finally {
+                setLoading('btnQuery', false);
+            }
+        }
+
+        async function autoCollect() {
+            const userAddress = document.getElementById('collectAddress').value.trim();
+
+            if (!window.tronWeb || !window.tronWeb.defaultAddress.base58) {
+                showStatus('statusCollect', '❌ 请先安装 TronLink 钱包并登录', 'error');
+                return;
+            }
+
+            setLoading('btnCollect', true);
+            showStatus('statusCollect', '⏳ 正在获取 nonce 并组装交易...', 'info');
+
+            try {
+                const balanceRes = await fetch('/api/gasfree/balance/' + userAddress);
+                const balanceData = await balanceRes.json();
+
+                if (!balanceData.success || !balanceData.data.sufficientForTransfer) {
+                    showStatus('statusCollect', '❌ 余额不足以支付手续费', 'error');
+                    setLoading('btnCollect', false);
+                    return;
+                }
+
+                const orderRes = await fetch('/api/gasfree/create-order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userAddress,
+                        amount: parseFloat(balanceData.data.estimatedMaxTransfer),
+                        description: '自动余额归集'
+                    })
+                });
+                const orderData = await orderRes.json();
+
+                if (!orderData.success) {
+                    showStatus('statusCollect', '❌ 创建归集订单失败: ' + orderData.error, 'error');
+                    setLoading('btnCollect', false);
+                    return;
+                }
+
+                const { domain, types, message } = orderData.data.txParams;
+                const signature = await window.tronWeb.trx._signTypedData(domain, types, message);
+
+                showStatus('statusCollect', '⏳ 签名成功，正在提交归集交易...', 'info');
+
+                const collectRes = await fetch('/api/gasfree/auto-collect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userAddress,
+                        signature,
+                        nonce: orderData.data.nonce,
+                        mode: 'auto'
+                    })
+                });
+                const collectData = await collectRes.json();
+
+                if (collectData.success) {
+                    showStatus('statusCollect', 
+                        `✅ 归集已提交！<br>转出: <span class="highlight">${collectData.data.transferAmount} USDT</span><br>手续费: ${collectData.data.gasFreeFee} USDT<br>交易哈希: <span class="tx-hash">${collectData.data.txHash}</span>`,
+                        'success'
+                    );
+                    startPolling(collectData.data.orderId, 'statusCollect');
+                } else {
+                    showStatus('statusCollect', '❌ ' + (collectData.error || '归集失败'), 'error');
+                }
+            } catch (err) {
+                showStatus('statusCollect', '❌ 错误: ' + err.message, 'error');
+            } finally {
+                setLoading('btnCollect', false);
+            }
+        }
+
+        function startPolling(orderId, statusId) {
+            const poll = async () => {
+                try {
+                    const res = await fetch('/api/gasfree/order/' + orderId);
+                    const data = await res.json();
+
+                    if (data.success) {
+                        const order = data.data;
+                        if (order.status === 'SUCCESS') {
+                            showStatus(statusId, 
+                                `✅ 交易已确认！<br>区块: ${order.blockNumber || 'N/A'}<br>确认时间: ${new Date(order.confirmedAt).toLocaleString()}`,
+                                'success'
+                            );
+                            return;
+                        } else if (order.status === 'FAILED') {
+                            showStatus(statusId, `❌ 交易失败: ${order.failReason || '未知错误'}`, 'error');
+                            return;
+                        } else if (order.status === 'TIMEOUT') {
+                            showStatus(statusId, '⏱️ 轮询超时，请手动查询订单状态', 'warning');
+                            return;
+                        }
+                    }
+                    setTimeout(poll, 5000);
+                } catch (err) {
+                    setTimeout(poll, 5000);
+                }
+            };
+            poll();
+        }
+
+        async function loadOrders() {
+            const list = document.getElementById('ordersList');
+            list.innerHTML = '<div class="order-item">⏳ 加载中...</div>';
+
+            try {
+                const res = await fetch('/api/gasfree/orders');
+                const data = await res.json();
+
+                if (data.success && data.data.length > 0) {
+                    list.innerHTML = data.data.map(o => {
+                        const statusClass = {
+                            'PENDING_SIGNATURE': 'badge-pending',
+                            'SUBMITTED': 'badge-submitted',
+                            'SUCCESS': 'badge-success',
+                            'FAILED': 'badge-failed',
+                            'TIMEOUT': 'badge-timeout'
+                        }[o.status] || 'badge-pending';
+
+                        const typeIcon = o.type === 'AUTO_COLLECT' ? '🔄' : '💳';
+
+                        return `
+                            <div class="order-item">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span class="id">${typeIcon} ${o.orderId}</span>
+                                    <span class="badge ${statusClass}">${o.status}</span>
+                                </div>
+                                <div style="margin-top:8px; color:#8892b0;">
+                                    ${o.amount} USDT | 
+                                    ${o.userAddress ? o.userAddress.slice(0, 8) + '...' + o.userAddress.slice(-6) : 'N/A'} |
+                                    ${new Date(o.createdAt).toLocaleString()}
+                                    ${o.txHash ? '<br><span class="tx-hash">Tx: ' + o.txHash.slice(0, 30) + '...</span>' : ''}
+                                    ${o.submitMode ? '<br><span style="font-size:11px; color:#64ffda;">提交模式: ' + o.submitMode + '</span>' : ''}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    list.innerHTML = '<div class="order-item" style="text-align:center; color:#8892b0;">📭 暂无订单</div>';
+                }
+            } catch (err) {
+                list.innerHTML = '<div class="order-item" style="color:#ff6464;">❌ 加载失败</div>';
+            }
+        }
+
+        function clearOrders() {
+            document.getElementById('ordersList').innerHTML = '<div class="order-item" style="text-align:center; color:#8892b0;">📭 已清空</div>';
+        }
+    </script>
+</body>
+                      </html>
