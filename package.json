@@ -1,0 +1,25 @@
+{
+  "name": "gasfree-auto-payment",
+  "version": "1.0.0",
+  "description": "TRON GasFree 全自动代付支付服务 - 余额自动归集",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "express": "4.17.1",
+    "qrcode": "1.5.1",
+    "tronweb": "4.4.0",
+    "dotenv": "16.0.3",
+    "axios": "1.4.0",
+    "redis": "4.6.7",
+    "ioredis": "5.3.2"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  },
+  "keywords": ["tron", "gasfree", "usdt", "payment", "auto-collect"],
+  "author": "",
+  "license": "MIT"
+}
